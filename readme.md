@@ -46,3 +46,41 @@ In this test, the file system was 3.3x faster than SQLite. This surprises me, si
 
 Let's try again. This time, we'll do proper file writes (write to a tmp file, rename to overwrite the current file). This should be a *bit* more crash-resistant, though for my use case, it probably doesn't matter a whole lot if one or two tasks fail due to crashes once or twice a year.
 
+## More resilient file writes
+
+Interesting. This time, I modified my file simulation to write to a tmp file first, then rename it to overwrite the existing file. This tweak caused the file simulation to be a bit slower than SQLite:
+
+```
+SQLite      9.6s, 9.6s, 7.9s
+BTRFS       13.5s, 13.3s, 10.2s
+```
+
+This makes me think that *probably* my initial file tests weren't waiting for fsync, but the rename forces the application to wait. I'm not sure.
+
+Another interesting thing I've noticed is that SQLite seems to speed up a bit as it goes along.
+
+Here's another run, just with SQLite:
+
+```
+SQLite ran 10k tasks in  10.83936393s
+SQLite ran 10k tasks in  10.27817409s
+SQLite ran 10k tasks in  8.891015857s
+SQLite ran 10k tasks in  6.528546715s
+SQLite ran 10k tasks in  6.738008705s
+SQLite ran 10k tasks in  6.917476809s
+```
+
+It seems to have a warm up phase or something. Eeeenterestink.
+
+## Conclusion
+
+For a my real(ish) world scenario, SQLite-- once warmed up-- is *roughly* twice as fast as the file system.
+
+I'm not sure which I'll end up going with, but I think it'll be SQLite. The devops part of me has a slight preference for using the file system, as I can use basic tools (grep, ls, etc) to check on things. The dev part of me definitely pefers SQLite, as I can let it take care of loads of things for me that I'd otherwise have to do myself, and I can trivially query for stats, etc.
+
+## Footnotes
+
+- I used [mattn/go-sqlite3](https://github.com/mattn/go-sqlite3)
+  - These were the settings: `./tmp.db?_timeout=5000&_journal=WAL&_sync=1`
+- The project is [here](https://github.com/chrisdavies/dbench)
+- In a separate project, I ran tests vs Postgres and found the performance was roughly the same as SQLite's worst performance when Postgres is hosted on the same machine.
