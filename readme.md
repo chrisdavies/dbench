@@ -78,6 +78,17 @@ For a my real(ish) world scenario, SQLite-- once warmed up-- is *roughly* twice 
 
 I'm not sure which I'll end up going with, but I think it'll be SQLite. The devops part of me has a slight preference for using the file system, as I can use basic tools (grep, ls, etc) to check on things. The dev part of me definitely pefers SQLite, as I can let it take care of loads of things for me that I'd otherwise have to do myself, and I can trivially query for stats, etc.
 
+## EXT4
+
+Someone on Hacker News suggested I try a faster file system. Here's what a $5 Linode running Ubuntu Server and EXT4 got me (running 10K simulations, which is 1 insert, 11 updates, and 1 delete):
+
+```bash
+SQLite      8.7s, 8.0s, 8.2s, 8.3s, 8.0s, 8.5s
+EXT4        18.3s, 17.3s, 16.6s, 15.7s, 16.1s
+```
+
+So. Same conclusion.
+
 ## Footnotes
 
 - I used [mattn/go-sqlite3](https://github.com/mattn/go-sqlite3)
