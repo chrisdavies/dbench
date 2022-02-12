@@ -149,4 +149,11 @@ func main() {
 	simulateN("SQL", 100, 100, sqlHandler)
 	simulateN("SQL", 100, 100, sqlHandler)
 	simulateN("SQL", 100, 100, sqlHandler)
+
+	simulateN("FILE", 100, 100, fileSimulator)
+	simulateN("FILE", 100, 100, fileSimulator)
+	simulateN("FILE", 100, 100, fileSimulator)
+	simulateN("FILE", 100, 100, fileSimulator)
+	simulateN("FILE", 100, 100, fileSimulator)
+	simulateN("FILE", 100, 100, fileSimulator)
 }
