@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"sync"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -29,6 +30,33 @@ type Task struct {
 	Id   string
 	Cmd  string
 	Args []string
+}
+
+func writeNConcurrent(name string, concurency, num int, fn func(id string, js []byte) error) {
+	wg := new(sync.WaitGroup)
+	start := time.Now()
+	wg.Add(concurency)
+	for i := 0; i < concurency; i++ {
+		go func() {
+			defer wg.Done()
+			for i := 0; i < num; i++ {
+				t := &Task{
+					Id:   genId(),
+					Cmd:  "example",
+					Args: []string{"a", "b", "c"},
+				}
+				b, err := json.Marshal(t)
+				if err != nil {
+					log.Panic(err)
+				}
+				if err = fn(t.Id, b); err != nil {
+					log.Panic(err)
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	fmt.Println(name, "wrote", num*concurency, "tasks in ", time.Since(start).String())
 }
 
 func writeN(name string, num int, fn func(id string, js []byte) error) {
@@ -57,6 +85,52 @@ func writeFiles(num int) {
 	os.Mkdir(dir, 0777)
 	writeN("Files", num, func(id string, js []byte) error {
 		return ioutil.WriteFile(path.Join(dir, id), js, 0777)
+	})
+}
+
+func writeConcurrentFiles(concurrency, num int) {
+	dir := "./tmp"
+	// Don't really care about errors for testing... we'll know if it fails
+	os.Mkdir(dir, 0777)
+	writeNConcurrent("Files", concurrency, num, func(id string, js []byte) error {
+		return ioutil.WriteFile(path.Join(dir, id), js, 0777)
+	})
+}
+
+func writeConcurrentSql(concurrency, num int) {
+	fmt.Println("Opening...")
+	db, err := sql.Open("sqlite3", "./tmp.db?_timeout=5000&_journal=WAL&_sync=1")
+	if err != nil {
+		log.Panic(err)
+	}
+	defer db.Close()
+
+	fmt.Println("Migrations...")
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS tasks (
+			id    varchar(16) NOT NULL PRIMARY KEY,
+			task  text NOT NULL
+		)
+	`)
+
+	if err != nil {
+		log.Panic(err)
+	}
+
+	w, err := db.Prepare(`
+		INSERT INTO tasks
+			(id, task)
+		VALUES
+			(@id, @task)
+	`)
+	if err != nil {
+		log.Panic(err)
+	}
+	defer w.Close()
+
+	writeNConcurrent("SQLite", concurrency, num, func(id string, js []byte) error {
+		_, err := w.Exec(sql.Named("id", id), sql.Named("task", string(js)))
+		return err
 	})
 }
 
@@ -98,10 +172,10 @@ func writeSql(num int) {
 }
 
 func main() {
-	writeSql(10000)
-	writeFiles(10000)
-	writeSql(10000)
-	writeFiles(10000)
-	writeSql(10000)
-	writeFiles(10000)
+	writeConcurrentFiles(100, 1000)
+	writeConcurrentSql(100, 1000)
+	writeConcurrentFiles(100, 1000)
+	writeConcurrentSql(100, 1000)
+	writeConcurrentFiles(100, 1000)
+	writeConcurrentSql(100, 1000)
 }
